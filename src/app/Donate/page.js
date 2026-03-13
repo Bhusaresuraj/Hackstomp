@@ -390,6 +390,20 @@ export default function DonatePage() {
           return;
         }
 
+        const { data: existingRelationship } = await supabase
+          .from('ngo_donors')
+          .select('id')
+          .eq('ngo_id', ngo.id)
+          .eq('donor_id', donor.id)
+          .maybeSingle();
+
+        if (!existingRelationship) {
+          await supabase.from('ngo_donors').insert({
+            ngo_id: ngo.id,
+            donor_id: donor.id,
+          });
+        }
+
         setDonations((currentHistory) => [donationPayload, ...currentHistory]);
         alert(`Donation successful. Payment ID: ${response.razorpay_payment_id}`);
       },

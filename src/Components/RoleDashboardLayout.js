@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   Bell,
   Home,
@@ -51,6 +52,8 @@ function Sidebar({
   tipTitle,
   tipText,
 }) {
+  const pathname = usePathname();
+
   return (
     <>
       <div
@@ -97,21 +100,38 @@ function Sidebar({
         <nav className="mt-8 space-y-2">
           {navItems.map((item, index) => {
             const Icon = item.icon;
+            const isActive =
+              item.href === pathname ||
+              (item.href !== '/Ngos' && pathname.startsWith(item.href));
             return (
-              <a
+              <Link
                 key={item.label}
                 href={item.href}
                 onClick={onClose}
-                className="flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold text-teal-50 transition hover:bg-white/10"
+                className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                  isActive
+                    ? 'bg-white text-teal-900 shadow-lg'
+                    : 'text-teal-50 hover:bg-white/10'
+                }`}
               >
                 <span className="flex items-center gap-3">
                   <Icon className="h-4 w-4" />
                   {item.label}
                 </span>
-                <span className="text-teal-200/80">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-              </a>
+                {item.badge ? (
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                      isActive ? 'bg-teal-100 text-teal-900' : 'bg-white/15 text-white'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                ) : (
+                  <span className={isActive ? 'text-teal-700' : 'text-teal-200/80'}>
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                )}
+              </Link>
             );
           })}
 
