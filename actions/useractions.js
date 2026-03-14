@@ -271,3 +271,27 @@ export async function getDoctorConnections(doctorId) {
 
   return data || [];
 }
+
+export async function getWasteReports() {
+
+  const { data, error } = await supabase
+    .from("drive_waste_reports")
+    .select(`
+      *,
+      ngo_drives (
+        title,
+        location,
+        drive_date,
+        ngo_id,
+        ngos ( name )
+      )
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Waste fetch error:", error);
+    return [];
+  }
+
+  return data || [];
+}
