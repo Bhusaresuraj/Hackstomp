@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "@/app/login/supabase";
 
 export async function createOrFetchDoctor() {
 
@@ -97,4 +97,177 @@ export async function createDoctorBlog(doctorId, blogData) {
   }
 
   return data;
+}
+
+export async function getDoctorBlogs(doctorId) {
+
+  const { data, error } = await supabase
+    .from("doctor_blogs")
+    .select("*")
+    .eq("doctor_id", doctorId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Fetch blogs error:", error);
+    return [];
+  }
+
+  return data;
+}
+
+export async function getAllNgos() {
+
+  const { data, error } = await supabase
+    .from("ngos")
+    .select("*");
+
+  if (error) {
+    console.error("NGO fetch error:", error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getNgoById(id) {
+
+  const { data, error } = await supabase
+    .from("ngos")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    console.error(error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function getNgoImages(id) {
+
+  const { data, error } = await supabase
+    .from("blog_images")
+    .select("*")
+    .eq("ngo_id", id);
+
+  return data || [];
+}
+
+
+export async function getNgoBlogs(id) {
+
+  console.log("Fetching NGO blogs for:", id);
+
+  const { data, error } = await supabase
+    .from("ngo_blogs")
+    .select("*")
+    .eq("ngo_id", id);
+
+  console.log("Blogs result:", data);
+
+  if (error) {
+    console.error("Blog error:", error);
+  }
+
+  return data || [];
+}
+
+
+
+
+export async function getNgoDrives(id) {
+
+  console.log("Fetching drives for:", id);
+
+  const { data, error } = await supabase
+    .from("ngo_drives")
+    .select("*")
+    .eq("ngo_id", id);
+
+  console.log("Drives result:", data);
+
+  if (error) console.error(error);
+
+  return data || [];
+}
+
+export async function connectDoctorToNgo(doctorId, ngoId) {
+
+  const { data, error } = await supabase
+    .from("ngo_doctors")
+    .insert([
+      {
+        doctor_id: doctorId,
+        ngo_id: ngoId
+      }
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Connection error:", error);
+    return null;
+  }
+
+  return data;
+}
+
+
+export async function checkDoctorNgoConnection(doctorId, ngoId) {
+
+  const { data } = await supabase
+    .from("ngo_doctors")
+    .select("*")
+    .eq("doctor_id", doctorId)
+    .eq("ngo_id", ngoId)
+    .single();
+
+  return data;
+}
+
+// export async function getDoctorConnectedNgos(doctorId) {
+
+//   const { data } = await supabase
+//     .from("ngo_doctors")
+//     .select(`
+//       ngos (*)
+//     `)
+//     .eq("doctor_id", doctorId);
+
+//   return data || [];
+// }
+
+// export async function getNotConnectedNgos(doctorId) {
+
+//   const { data } = await supabase
+//     .from("ngos")
+//     .select("*")
+//     .not(
+//       "id",
+//       "in",
+//       `(
+//         select ngo_id
+//         from ngo_doctors
+//         where doctor_id='${doctorId}'
+//       )`
+//     );
+
+//   return data || [];
+// }
+
+export async function getDoctorConnections(doctorId) {
+
+  const { data, error } = await supabase
+    .from("ngo_doctors")
+    .select("ngo_id")
+    .eq("doctor_id", doctorId);
+
+  if (error) {
+    console.error("Connection fetch error:", error);
+    return [];
+  }
+
+  return data || [];
 }

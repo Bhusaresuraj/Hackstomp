@@ -9,7 +9,7 @@ import NgoCard from "@/Components/NgoCard";
 import BlogCard from "@/Components/BlogCard";
 import StatCard from "@/Components/StatCard";
 import DoctorProfileModal from "@/Components/DoctorProfileModal";
-import { createOrFetchDoctor } from "../../../actions/useractions";
+import { createOrFetchDoctor,getDoctorBlogs } from "../../../actions/useractions";
 
 export default function Dashboard() {
 
@@ -28,11 +28,24 @@ const [showModal, setShowModal] = useState(false);
  const [blogs, setBlogs] = useState([]);
 const [showBlogModal, setShowBlogModal] = useState(false);
 
-   useEffect(() => {
+
+const [connectedNgos, setConnectedNgos] = useState([]);
+const [otherNgos, setOtherNgos] = useState([]);
+
+useEffect(() => {
 
   async function setupDoctor() {
+
+    
     const doctorData = await createOrFetchDoctor();
+
     setDoctor(doctorData);
+
+    if (doctorData) {
+      const doctorBlogs = await getDoctorBlogs(doctorData.id);
+      setBlogs(doctorBlogs);
+    }
+
   }
 
   setupDoctor();
@@ -42,6 +55,8 @@ const [showBlogModal, setShowBlogModal] = useState(false);
 function addBlog(blog) {
   setBlogs((prev) => [blog, ...prev]);
 }
+
+
 
 
 
@@ -104,7 +119,11 @@ function addBlog(blog) {
   />
 )}
 
-         <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-6">
+
+  {blogs.length === 0 && (
+    <p className="text-gray-500">No blogs posted yet</p>
+  )}
 
   {blogs.map((blog) => (
     <BlogCard key={blog.id} blog={blog} />

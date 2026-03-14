@@ -121,14 +121,14 @@ awareness and village development.
 <div className="mt-8 flex gap-4">
 
 <Link
-href="/doctors"
+href="/login"
 className="bg-white text-teal-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition"
 >
 Explore Doctors
 </Link>
 
 <Link
-href="/blogs"
+href="/Blogs"
 className="border border-white px-6 py-3 rounded-lg hover:bg-white hover:text-teal-600 transition"
 >
 Read Health Blogs
