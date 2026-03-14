@@ -3,7 +3,9 @@ import NgoDashboardWorkspace from '@/Components/ngo/NgoDashboardWorkspace';
 
 const validSections = new Set([
   'dashboard',
+  'audits',
   'drives',
+  'workers',
   'doctors',
   'donors',
   'notifications',
@@ -13,8 +15,8 @@ const validSections = new Set([
 ]);
 
 export default  async function NgoSectionPage({ params }) {
-  conasole.log(params);
-  const section = await params?.section;
+  const resolvedParams = await params;
+  const section = resolvedParams?.section;
 
   if (!validSections.has(section)) {
     notFound();

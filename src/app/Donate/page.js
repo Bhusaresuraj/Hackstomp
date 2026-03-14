@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import Script from 'next/script';
 import { motion } from 'framer-motion';
 import {
@@ -8,28 +9,12 @@ import {
   CalendarRange,
   HeartHandshake,
   MapPin,
-  ShieldCheck,
-  Stethoscope,
 } from 'lucide-react';
 import DonorDashboardLayout from '@/Components/DonorDashboardLayout';
 import { supabase } from '@/lib/supabase';
 
 const fallbackNgoImage =
   'https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?auto=format&fit=crop&w=1200&q=80';
-
-const platformStats = [
-  { label: 'Verified NGOs', key: 'verifiedCount' },
-  { label: 'Active Rural Programs', key: 'drivesCount' },
-  { label: 'Villages Reached', key: 'locationsCount' },
-];
-
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount || 0);
-}
 
 function NgoDrivesView({ loading, drives, ngoName }) {
   if (loading) {
@@ -99,6 +84,7 @@ function NgoCard({
   amount,
   onAmountChange,
   onSelect,
+  onViewProfile,
   onDonate,
 }) {
   return (
@@ -197,6 +183,14 @@ function NgoCard({
           </button>
         </div>
 
+        <Link
+          href={`/Donate/ngo/${ngo.id}`}
+          onClick={onViewProfile}
+          className="flex w-full items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-teal-200 hover:bg-white"
+        >
+          View NGO Profile
+        </Link>
+
         {isSelected && (
           <NgoDrivesView
             loading={drivesLoading}
@@ -212,7 +206,6 @@ function NgoCard({
 export default function DonatePage() {
   const [isRazorpayReady, setIsRazorpayReady] = useState(false);
   const [donor, setDonor] = useState(null);
-  const [donations, setDonations] = useState([]);
   const [searchValue, setSearchValue] = useState('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [ngos, setNgos] = useState([]);
@@ -223,9 +216,13 @@ export default function DonatePage() {
   const [drivesLoading, setDrivesLoading] = useState(false);
   const [amounts, setAmounts] = useState({});
 
-  const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY || '';
+  const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY || 'rzp_live_SQgmlrGay1oEg8';
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.Razorpay) {
+      setIsRazorpayReady(true);
+    }
+
     let isMounted = true;
 
     const loadUser = async () => {
@@ -238,12 +235,14 @@ export default function DonatePage() {
         return;
       }
 
-      setDonor({
+      const nextDonor = {
         id: data.user.id,
         name: data.user.user_metadata?.full_name || 'Donor',
         email: data.user.email || 'No email available',
         avatar: data.user.user_metadata?.avatar_url || '',
-      });
+      };
+
+      setDonor(nextDonor);
     };
 
     const loadNgos = async () => {
@@ -346,7 +345,7 @@ export default function DonatePage() {
       return;
     }
 
-    if (!isRazorpayReady || typeof window === 'undefined' || !window.Razorpay) {
+    if (typeof window === 'undefined' || !window.Razorpay) {
       alert('Razorpay is still loading. Please try again in a moment.');
       return;
     }
@@ -390,6 +389,19 @@ export default function DonatePage() {
           return;
         }
 
+        // Record the Razorpay transaction specifically
+        const { error: txError } = await supabase.from('razorpay_transactions').insert({
+          payment_id: response.razorpay_payment_id,
+          donor_id: donor.id,
+          ngo_id: ngo.id,
+          amount: rawAmount,
+          status: 'success'
+        });
+        
+        if (txError) {
+          console.error('Failed to log Razorpay transaction:', txError);
+        }
+
         const { data: existingRelationship } = await supabase
           .from('ngo_donors')
           .select('id')
@@ -404,7 +416,10 @@ export default function DonatePage() {
           });
         }
 
-        setDonations((currentHistory) => [donationPayload, ...currentHistory]);
+        setAmounts((currentAmounts) => ({
+          ...currentAmounts,
+          [ngo.id]: '',
+        }));
         alert(`Donation successful. Payment ID: ${response.razorpay_payment_id}`);
       },
       theme: {
@@ -436,13 +451,6 @@ export default function DonatePage() {
     );
   }, [ngos, searchValue]);
 
-  const verifiedCount = ngos.filter((ngo) => ngo.verified).length;
-  const drivesCount = ngos.reduce((sum, ngo) => sum + (ngo.total_drives || 0), 0);
-  const locationsCount = new Set(ngos.map((ngo) => ngo.location).filter(Boolean)).size;
-  const totalDonationsMade = donations.reduce((sum, donation) => sum + donation.amount, 0);
-  const ngosSupported = new Set(donations.map((donation) => donation.ngo_id)).size;
-  const lastDonation = donations[0];
-
   return (
     <>
       <Script
@@ -461,144 +469,13 @@ export default function DonatePage() {
         searchValue={searchValue}
         onSearchChange={setSearchValue}
       >
-        <div className="relative overflow-hidden rounded-3xl border border-teal-100 bg-white px-6 py-7 shadow-xl sm:px-8 lg:px-10">
-          <div className="absolute right-0 top-0 h-44 w-44 rounded-full bg-teal-100/70 blur-3xl" />
-          <div className="absolute bottom-0 left-0 h-36 w-36 rounded-full bg-emerald-100/70 blur-3xl" />
-
-          <div id="overview" className="relative grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="space-y-6">
-              <div className="inline-flex rounded-full bg-teal-100 px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] text-teal-700">
-                Live NGO Directory
-              </div>
-              <div className="space-y-4">
-                <h1 className="max-w-3xl text-4xl font-extrabold leading-tight text-teal-950 sm:text-5xl">
-                  Support verified NGOs from live Supabase data
-                </h1>
-                <p className="max-w-2xl text-lg leading-8 text-slate-600">
-                  Browse real NGO profiles, inspect their completed drives, and donate directly with
-                  Razorpay while saving donation history to Supabase.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-4 sm:flex-row">
-                <div className="rounded-2xl border border-teal-200 bg-teal-50 px-5 py-4 text-sm font-medium text-teal-800">
-                  Click any NGO card to load its drives from the `ngo_drives` table.
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-600">
-                  Donations are inserted into the `donations` table after Razorpay success.
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              {platformStats.map((stat) => {
-                const value =
-                  stat.key === 'verifiedCount'
-                    ? verifiedCount
-                    : stat.key === 'drivesCount'
-                    ? drivesCount
-                    : locationsCount;
-
-                return (
-                  <div
-                    key={stat.label}
-                    className="rounded-2xl border border-teal-100 bg-teal-50 p-5 shadow-md"
-                  >
-                    <p className="text-sm font-semibold uppercase tracking-[0.22em] text-teal-700">
-                      {stat.label}
-                    </p>
-                    <p className="mt-3 text-4xl font-extrabold text-teal-950">{value}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-8 grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
-          <section
-            id="dashboard"
-            className="rounded-3xl border border-teal-100 bg-white p-6 shadow-xl sm:p-7"
-          >
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-              {donor?.avatar ? (
-                <img
-                  src={donor.avatar}
-                  alt={donor.name}
-                  className="h-20 w-20 rounded-2xl object-cover shadow-md"
-                />
-              ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-600 to-emerald-400 text-2xl font-extrabold text-white shadow-md">
-                  {donor?.name?.charAt(0) || 'D'}
-                </div>
-              )}
-
-              <div>
-                <p className="text-sm font-bold uppercase tracking-[0.24em] text-teal-700">
-                  Donor Dashboard
-                </p>
-                <h2 className="mt-2 text-3xl font-extrabold text-teal-950">
-                  {donor ? `Welcome, ${donor.name} 👋` : 'Welcome, donor 👋'}
-                </h2>
-                <p className="mt-2 text-base text-slate-600">
-                  {donor?.email || 'Sign in with Google to personalise your donor profile.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-teal-100 bg-teal-50 p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                  Total Donations Made
-                </p>
-                <p className="mt-4 text-4xl font-extrabold text-teal-950">
-                  {formatCurrency(totalDonationsMade)}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-teal-100 bg-teal-50 p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                  NGOs Supported
-                </p>
-                <p className="mt-4 text-4xl font-extrabold text-teal-950">{ngosSupported}</p>
-              </div>
-              <div className="rounded-2xl border border-teal-100 bg-teal-50 p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                  Last Donation
-                </p>
-                <p className="mt-4 text-lg font-bold text-teal-950">
-                  {lastDonation
-                    ? `${formatCurrency(lastDonation.amount)}`
-                    : 'No donations yet'}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <aside className="rounded-3xl border border-teal-100 bg-white p-6 shadow-xl sm:p-7">
-            <p className="text-sm font-bold uppercase tracking-[0.24em] text-teal-700">
-              Live Data Notes
-            </p>
-            <div className="mt-5 space-y-4">
-              <div className="rounded-2xl border border-teal-100 bg-teal-50 p-4 text-sm text-slate-700">
-                NGO cards are now fetched via `supabase.from(&quot;ngos&quot;).select(&quot;*&quot;)`.
-              </div>
-              <div className="rounded-2xl border border-teal-100 bg-teal-50 p-4 text-sm text-slate-700">
-                Drive details load from `ngo_drives` only when an NGO is selected.
-              </div>
-              <div className="rounded-2xl border border-teal-100 bg-teal-50 p-4 text-sm text-slate-700">
-                Donations are stored with `donor_id`, `ngo_id`, `amount`, and `payment_id`.
-              </div>
-            </div>
-          </aside>
-        </div>
-
-        <section id="campaigns" className="mt-8 space-y-5">
+        <section id="campaigns" className="space-y-5">
           <div className="rounded-3xl border border-teal-100 bg-white p-6 shadow-xl">
             <p className="text-sm font-bold uppercase tracking-[0.24em] text-teal-700">
-              NGO Directory
+              NGO Camps
             </p>
             <h2 className="mt-2 text-3xl font-extrabold text-teal-950">
-              Browse live NGOs and drill into their drives
+              Browse live NGO camps and support them directly
             </h2>
             <p className="mt-3 text-sm text-slate-500">
               {filteredNgos.length} NGO{filteredNgos.length === 1 ? '' : 's'} match your current search.
@@ -625,6 +502,7 @@ export default function DonatePage() {
                   amount={amounts[ngo.id] || ''}
                   onAmountChange={handleAmountChange}
                   onSelect={() => loadNgoDrives(ngo.id)}
+                  onViewProfile={() => loadNgoDrives(ngo.id)}
                   onDonate={() => handleDonate(ngo)}
                 />
               ))}

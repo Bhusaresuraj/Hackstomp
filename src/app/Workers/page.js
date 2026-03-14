@@ -1,258 +1,345 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  ClipboardList,
-  LayoutDashboard,
-  MapPinned,
-  ShieldCheck,
-  TimerReset,
-  Users,
-} from 'lucide-react';
-import RoleDashboardLayout from '@/Components/RoleDashboardLayout';
+import { useRouter } from 'next/navigation';
+import { Activity, CheckCircle2, ClipboardList, MapPin, Stethoscope } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-const navItems = [
-  { href: '#overview', label: 'Overview', icon: LayoutDashboard },
-  { href: '#dashboard', label: 'Dashboard', icon: Users },
-  { href: '#campaigns', label: 'Assignments', icon: ClipboardList },
-];
+export default function WorkerDashboard() {
+  const router = useRouter();
+  const [worker, setWorker] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [ngos, setNgos] = useState([]);
+  const [selectedNgo, setSelectedNgo] = useState('');
+  const [linkingNgo, setLinkingNgo] = useState(false);
 
-const workerStats = [
-  { label: 'Assigned Villages', value: '11' },
-  { label: 'Open Field Reports', value: '7' },
-  { label: 'Average Response Time', value: '2h' },
-];
-
-const assignments = [
-  {
-    id: 'anganwadi-check',
-    title: 'Anganwadi Safety Check',
-    village: 'Pimpalgaon',
-    summary: 'Inspect medicine storage, infant records, and sanitation around the center.',
-    urgency: 'High',
-    due: 'Today, 5:00 PM',
-  },
-  {
-    id: 'village-camp-support',
-    title: 'Medical Camp Support',
-    village: 'Sinnar Block',
-    summary: 'Coordinate patient queueing, verify registrations, and track basic vitals.',
-    urgency: 'Medium',
-    due: 'Tomorrow, 11:30 AM',
-  },
-  {
-    id: 'nutrition-followup',
-    title: 'Nutrition Follow-up Visit',
-    village: 'Kheda Cluster',
-    summary: 'Revisit flagged households and capture updated beneficiary progress notes.',
-    urgency: 'Open',
-    due: 'Apr 19, 3:00 PM',
-  },
-];
-
-function AssignmentCard({ assignment }) {
-  return (
-    <article className="rounded-3xl border border-teal-100 bg-white p-6 shadow-xl">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-700">
-            {assignment.urgency}
-          </p>
-          <h3 className="mt-2 text-2xl font-extrabold text-teal-950">{assignment.title}</h3>
-        </div>
-        <div className="rounded-2xl bg-teal-50 p-3 text-teal-700">
-          <ClipboardList className="h-5 w-5" />
-        </div>
-      </div>
-
-      <p className="mt-4 text-sm leading-7 text-slate-600">{assignment.summary}</p>
-
-      <div className="mt-6 grid gap-3">
-        <div className="flex items-center gap-3 rounded-2xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-slate-700">
-          <MapPinned className="h-4 w-4 text-teal-700" />
-          {assignment.village}
-        </div>
-        <div className="flex items-center gap-3 rounded-2xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-slate-700">
-          <TimerReset className="h-4 w-4 text-teal-700" />
-          Due: {assignment.due}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-export default function WorkersPage() {
-  const [user, setUser] = useState(null);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
+  const [formData, setFormData] = useState({
+    village_name: '',
+    district: '',
+    prevalent_diseases: '',
+    sanitation_status: 'Average',
+    medical_requirements: '',
+    additional_notes: '',
+  });
 
   useEffect(() => {
-    let isMounted = true;
-
     const loadUser = async () => {
-      const { data, error } = await supabase.auth.getUser();
-
-      if (!isMounted || error || !data?.user) {
-        if (isMounted) {
-          setUser(null);
-        }
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error || !session?.user) {
+        router.push('/login');
         return;
       }
 
-      setUser({
-        name: data.user.user_metadata?.full_name || 'Worker',
-        email: data.user.email || 'No email available',
-        avatar: data.user.user_metadata?.avatar_url || '',
-      });
+      const currentWorker = {
+        id: session.user.id,
+        name: session.user.user_metadata?.full_name || 'Health Worker',
+        email: session.user.email,
+        ngo_id: session.user.user_metadata?.ngo_id || null,
+      };
+
+      setWorker(currentWorker);
+
+      if (!currentWorker.ngo_id) {
+        const { data } = await supabase.from('ngos').select('id, name, location').order('name');
+        setNgos(data || []);
+      }
+      setLoading(false);
     };
 
     loadUser();
+  }, [router]);
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      loadUser();
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setUser(null);
-    setMobileOpen(false);
-    window.location.href = '/login';
+    router.push('/login');
   };
 
-  const handleGoogleLogin = async () => {
-    const redirectUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent('/Workers')}`;
+  const handleLinkNgo = async (e) => {
+    e.preventDefault();
+    if (!selectedNgo) return;
+    setLinkingNgo(true);
+    setErrorMessage('');
 
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectUrl,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
-      },
+    const { error } = await supabase.auth.updateUser({
+      data: { ngo_id: selectedNgo }
     });
-  };
 
-  const filteredAssignments = assignments.filter((assignment) => {
-    const query = searchValue.trim().toLowerCase();
-
-    if (!query) {
-      return true;
+    if (error) {
+      setErrorMessage(error.message);
+      setLinkingNgo(false);
+      return;
     }
 
-    return [assignment.title, assignment.village, assignment.summary, assignment.urgency].some((value) =>
-      value.toLowerCase().includes(query)
+    // Map the worker to the NGO in the backend explicitly
+    const { error: insertError } = await supabase.from('workers').upsert({ 
+      id: worker.id, 
+      ngo_id: selectedNgo, 
+      full_name: worker.name, 
+      email: worker.email 
+    });
+
+    if (insertError) {
+      console.error("Failed to map worker in database:", insertError.message);
+      setErrorMessage("Database error: " + insertError.message);
+      setLinkingNgo(false);
+      return; // Stop here if the database fails
+    }
+
+    setWorker((prev) => ({ ...prev, ngo_id: selectedNgo }));
+    setLinkingNgo(false);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    if (!worker?.id) {
+      setErrorMessage('User not authenticated.');
+      setSubmitting(false);
+      return;
+    }
+
+    // Failsafe: Ensure the worker is in the workers table before submitting the audit.
+    // This auto-repairs any accounts that got stuck in a partially-linked state.
+    const { error: workerUpsertError } = await supabase.from('workers').upsert({
+      id: worker.id,
+      ngo_id: worker.ngo_id,
+      full_name: worker.name,
+      email: worker.email
+    });
+
+    if (workerUpsertError) {
+      console.warn("Failsafe worker insert warning:", workerUpsertError.message);
+    }
+
+    const { error } = await supabase.from('village_audits').insert({
+      worker_id: worker.id,
+      ngo_id: worker.ngo_id,
+      ...formData
+    });
+
+    if (error) {
+      setErrorMessage(error.message);
+    } else {
+      setSuccessMessage('Village audit submitted successfully! Your report has been logged.');
+      setFormData({
+        village_name: '',
+        district: '',
+        prevalent_diseases: '',
+        sanitation_status: 'Average',
+        medical_requirements: '',
+        additional_notes: '',
+      });
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccessMessage(''), 5000);
+    }
+    setSubmitting(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-teal-50">
+        <div className="text-lg font-semibold text-teal-700">Loading workspace...</div>
+      </div>
     );
-  });
+  }
+
+  if (worker && !worker.ngo_id) {
+    return (
+      <div className="min-h-screen bg-teal-50">
+        <header className="bg-white shadow-sm border-b border-teal-100">
+          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
+            <div className="flex items-center gap-2 text-teal-800">
+              <ClipboardList className="h-6 w-6" />
+              <h1 className="text-xl font-extrabold tracking-tight">Worker Portal</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-slate-600 hidden sm:block">{worker?.name}</span>
+              <button onClick={handleLogout} className="rounded-lg border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-bold text-teal-700 transition hover:bg-teal-100">
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </header>
+        <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+          <div className="rounded-3xl border border-teal-100 bg-white p-6 shadow-xl sm:p-8">
+            <h2 className="text-2xl font-extrabold text-teal-950">Welcome, {worker.name}!</h2>
+            <p className="mt-3 text-slate-600">Please select an NGO to collaborate with before you can submit village audits.</p>
+            
+            {errorMessage && (
+              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                {errorMessage}
+              </div>
+            )}
+
+            <form onSubmit={handleLinkNgo} className="mt-6 space-y-5">
+              <label className="space-y-2 block">
+                <span className="text-sm font-semibold text-teal-900">Select NGO</span>
+                <select required value={selectedNgo} onChange={(e) => setSelectedNgo(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100">
+                  <option value="" disabled>Choose an NGO...</option>
+                  {ngos.map((ngo) => (
+                    <option key={ngo.id} value={ngo.id}>{ngo.name} ({ngo.location})</option>
+                  ))}
+                </select>
+              </label>
+
+              <button type="submit" disabled={linkingNgo || !selectedNgo} className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-8 py-3 text-sm font-bold text-white shadow-md transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70">
+                {linkingNgo ? 'Linking...' : 'Join NGO'}
+              </button>
+            </form>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
-    <RoleDashboardLayout
-      user={user}
-      mobileOpen={mobileOpen}
-      onMobileOpen={() => setMobileOpen(true)}
-      onMobileClose={() => setMobileOpen(false)}
-      onLogout={handleLogout}
-      onSwitchAccount={handleGoogleLogin}
-      searchValue={searchValue}
-      onSearchChange={setSearchValue}
-      platformName="Seva Swasthya"
-      panelTitle="Worker Dashboard"
-      navItems={navItems}
-      tipTitle="Field Tip"
-      tipText="Keep assignment notes short and factual so NGO coordinators can act on them without extra follow-up."
-      searchPlaceholder="Search villages, tasks, or urgency"
-    >
-      <section
-        id="overview"
-        className="rounded-3xl border border-teal-100 bg-white px-6 py-7 shadow-xl sm:px-8"
-      >
-        <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
-          <div>
-            <p className="inline-flex rounded-full bg-teal-100 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-teal-700">
-              Field Operations
-            </p>
-            <h1 className="mt-5 text-4xl font-extrabold leading-tight text-teal-950 sm:text-5xl">
-              Track village assignments, report issues, and support healthcare outreach on the ground
-            </h1>
-            <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
-              Use the worker dashboard to manage daily field responsibilities, coordinate with NGOs, and maintain clean reporting across every village visit.
-            </p>
+    <div className="min-h-screen bg-teal-50">
+      {/* Top Navigation */}
+      <header className="bg-white shadow-sm border-b border-teal-100">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
+          <div className="flex items-center gap-2 text-teal-800">
+            <ClipboardList className="h-6 w-6" />
+            <h1 className="text-xl font-extrabold tracking-tight">Worker Portal</h1>
           </div>
-
-          <div className="grid gap-4">
-            {workerStats.map((stat) => (
-              <div
-                key={stat.label}
-                className="rounded-2xl border border-teal-100 bg-teal-50 p-5 shadow-md"
-              >
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-teal-700">
-                  {stat.label}
-                </p>
-                <p className="mt-3 text-4xl font-extrabold text-teal-950">{stat.value}</p>
-              </div>
-            ))}
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-slate-600 hidden sm:block">
+              {worker?.name}
+            </span>
+            <button
+              onClick={handleLogout}
+              className="rounded-lg border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-bold text-teal-700 transition hover:bg-teal-100"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
-      </section>
+      </header>
 
-      <section
-        id="dashboard"
-        className="mt-8 rounded-3xl border border-teal-100 bg-white p-6 shadow-xl sm:p-7"
-      >
-        <p className="text-sm font-bold uppercase tracking-[0.24em] text-teal-700">
-          Worker Dashboard
-        </p>
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-teal-100 bg-teal-50 p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Households Visited
-            </p>
-            <p className="mt-4 text-4xl font-extrabold text-teal-950">128</p>
-          </div>
-          <div className="rounded-2xl border border-teal-100 bg-teal-50 p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Verified Reports
-            </p>
-            <p className="mt-4 text-4xl font-extrabold text-teal-950">22</p>
-          </div>
-          <div className="rounded-2xl border border-teal-100 bg-teal-50 p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Compliance Score
-            </p>
-            <p className="mt-4 text-4xl font-extrabold text-teal-950">94%</p>
-          </div>
-        </div>
-      </section>
-
-      <section id="campaigns" className="mt-8">
-        <div className="rounded-3xl border border-teal-100 bg-white p-6 shadow-xl">
+      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+        <div className="mb-8">
           <p className="text-sm font-bold uppercase tracking-[0.24em] text-teal-700">
-            Assignments
+            Field Operations
           </p>
           <h2 className="mt-2 text-3xl font-extrabold text-teal-950">
-            Current field tasks across your assigned villages
+            Village Health Audit Form
           </h2>
-          <p className="mt-3 text-sm text-slate-500">
-            {filteredAssignments.length} assignment{filteredAssignments.length === 1 ? '' : 's'} match your search.
+          <p className="mt-3 text-slate-600">
+            Submit your ground reports to help NGOs and Doctors understand the current medical requirements and sanitary conditions of rural areas.
           </p>
         </div>
 
-        <div className="mt-6 grid gap-6 xl:grid-cols-3">
-          {filteredAssignments.map((assignment) => (
-            <AssignmentCard key={assignment.id} assignment={assignment} />
-          ))}
-        </div>
-      </section>
-    </RoleDashboardLayout>
+        {successMessage && (
+          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-800 shadow-sm">
+            <CheckCircle2 className="h-6 w-6" />
+            <p className="font-semibold">{successMessage}</p>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-700 shadow-sm">
+            <p className="font-semibold">Error submitting report: {errorMessage}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-8 rounded-3xl border border-teal-100 bg-white p-6 shadow-xl sm:p-8">
+          
+          {/* Section 1: Location */}
+          <section>
+            <div className="mb-5 flex items-center gap-2 text-teal-800 border-b border-teal-50 pb-3">
+              <MapPin className="h-5 w-5" />
+              <h3 className="text-lg font-bold">Location Details</h3>
+            </div>
+            <div className="grid gap-5 md:grid-cols-2">
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-teal-900">Village Name <span className="text-red-500">*</span></span>
+                <input required type="text" name="village_name" value={formData.village_name} onChange={handleChange} placeholder="e.g. Palghar Village" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100" />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-teal-900">District / Region <span className="text-red-500">*</span></span>
+                <input required type="text" name="district" value={formData.district} onChange={handleChange} placeholder="e.g. Maharashtra" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100" />
+              </label>
+            </div>
+          </section>
+
+          {/* Section 2: Health Status */}
+          <section>
+            <div className="mb-5 flex items-center gap-2 text-teal-800 border-b border-teal-50 pb-3">
+              <Activity className="h-5 w-5" />
+              <h3 className="text-lg font-bold">Health & Sanitary Audit</h3>
+            </div>
+            <div className="grid gap-5 md:grid-cols-2">
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-teal-900">Prevalent Diseases</span>
+                <input type="text" name="prevalent_diseases" value={formData.prevalent_diseases} onChange={handleChange} placeholder="e.g. Malaria, Dengue, Waterborne" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100" />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-teal-900">Sanitation Status</span>
+                <select name="sanitation_status" value={formData.sanitation_status} onChange={handleChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100">
+                  <option value="Good">Good (Adequate waste disposal)</option>
+                  <option value="Average">Average (Needs improvement)</option>
+                  <option value="Poor">Poor (High risk of infection)</option>
+                  <option value="Critical">Critical (Immediate action required)</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          {/* Section 3: Requirements */}
+          <section>
+            <div className="mb-5 flex items-center gap-2 text-teal-800 border-b border-teal-50 pb-3">
+              <Stethoscope className="h-5 w-5" />
+              <h3 className="text-lg font-bold">Medical Requirements</h3>
+            </div>
+            <div className="grid gap-5">
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-teal-900">Required Interventions / Supplies <span className="text-red-500">*</span></span>
+                <textarea required name="medical_requirements" value={formData.medical_requirements} onChange={handleChange} rows={3} placeholder="List required medicines, doctor camps needed, vaccines, etc." className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100" />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-semibold text-teal-900">Additional Notes (Optional)</span>
+                <textarea name="additional_notes" value={formData.additional_notes} onChange={handleChange} rows={2} placeholder="Any other observations regarding infrastructure or patient count..." className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-2 focus:ring-teal-100" />
+              </label>
+            </div>
+          </section>
+
+          <div className="pt-4 flex justify-end">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-8 py-4 text-sm font-bold text-white shadow-md transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {submitting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Submitting Report...
+                </>
+              ) : (
+                <>
+                  <ClipboardList className="h-5 w-5" />
+                  Submit Village Audit
+                </>
+              )}
+            </button>
+          </div>
+
+        </form>
+      </main>
+    </div>
   );
 }

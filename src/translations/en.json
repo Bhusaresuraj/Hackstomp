@@ -16,5 +16,38 @@
     "cough": "Cough",
     "diarrhea": "Diarrhea",
     "eye": "Eye Irritation"
+  },
+
+  "guidance": {
+    "fever": {
+      "causes": ["Viral infection", "Malaria", "Dengue"],
+      "advice": ["Drink plenty of water", "Take rest", "Monitor temperature"],
+      "doctor": ["Fever lasts more than 3 days"]
+    },
+    "headache": {
+      "causes": ["Stress", "Dehydration", "Lack of sleep"],
+      "advice": ["Drink water", "Rest", "Avoid screen"],
+      "doctor": ["Severe headache"]
+    },
+    "vomiting": {
+      "causes": ["Food poisoning", "Stomach infection"],
+      "advice": ["Drink ORS", "Eat light food"],
+      "doctor": ["Vomiting more than 1 day"]
+    },
+    "cough": {
+      "causes": ["Cold", "Allergy"],
+      "advice": ["Drink warm water", "Rest"],
+      "doctor": ["Cough for more than 1 week"]
+    },
+    "diarrhea": {
+      "causes": ["Contaminated water"],
+      "advice": ["Drink ORS", "Stay hydrated"],
+      "doctor": ["More than 2 days"]
+    },
+    "eye": {
+      "causes": ["Dust", "Allergy"],
+      "advice": ["Wash eyes with clean water"],
+      "doctor": ["Redness or swelling"]
+    }
   }
 }

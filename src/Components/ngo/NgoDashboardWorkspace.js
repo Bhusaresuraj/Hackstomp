@@ -7,13 +7,16 @@ import {
   BookOpenText,
   BrainCircuit,
   Clock3,
+  ClipboardList,
   ExternalLink,
   HandHeart,
   ImagePlus,
   LayoutDashboard,
+  PlusCircle,
   ShieldAlert,
   ShieldCheck,
   Stethoscope,
+  UserPlus,
   Workflow,
 } from 'lucide-react';
 import RoleDashboardLayout from '@/Components/RoleDashboardLayout';
@@ -24,16 +27,21 @@ import BlogEditor from '@/Components/ngo/BlogEditor';
 import BlogList from '@/Components/ngo/BlogList';
 import ImageUploader from '@/Components/ngo/ImageUploader';
 import ModelDecisionPreview from '@/Components/ngo/ModelDecisionPreview';
+import NgoProfileModal from '@/Components/ngo/NgoProfileModal';
 import DoctorConnectionsPanel from '@/Components/ngo/DoctorConnectionsPanel';
 import DonorSupportPanel from '@/Components/ngo/DonorSupportPanel';
 import NotificationFeed from '@/Components/ngo/NotificationFeed';
 import VillageDecisionCard from '@/Components/ngo/VillageDecisionCard';
+import NgoWorkersPanel from '@/Components/ngo/NgoWorkersPanel';
+import NgoAuditsPanel from '@/Components/ngo/NgoAuditsPanel';
 import { supabase } from '@/lib/supabase';
 
 const baseNavItems = [
   { href: '/Ngos', label: 'Overview', icon: LayoutDashboard },
   { href: '/Ngos/dashboard', label: 'Dashboard', icon: Workflow },
+  { href: '/Ngos/audits', label: 'Audits', icon: ClipboardList },
   { href: '/Ngos/drives', label: 'Drives', icon: ShieldCheck },
+  { href: '/Ngos/workers', label: 'Workers', icon: UserPlus },
   { href: '/Ngos/doctors', label: 'Doctors', icon: Stethoscope },
   { href: '/Ngos/donors', label: 'Donors', icon: HandHeart },
   { href: '/Ngos/notifications', label: 'Notifications', icon: Bell },
@@ -45,7 +53,9 @@ const baseNavItems = [
 const titles = {
   overview: 'NGO Overview',
   dashboard: 'NGO Dashboard',
+  audits: 'Village Audits',
   drives: 'NGO Drives',
+  workers: 'NGO Workers',
   doctors: 'NGO Doctors',
   donors: 'NGO Donors',
   notifications: 'NGO Notifications',
@@ -140,6 +150,122 @@ function NgoSummaryCard({ ngo }) {
   );
 }
 
+function NgoRegistrationCard({ user, submitting, onSubmit }) {
+  const [formValues, setFormValues] = useState({
+    name: '',
+    description: '',
+    location: '',
+    contact_phone: '',
+    logo_url: user?.avatar || '',
+  });
+
+  const updateField = (field, value) => {
+    setFormValues((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  return (
+    <section className="rounded-3xl border border-teal-100 bg-white p-6 shadow-xl sm:p-8">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-[0.22em] text-teal-700">
+            Register As NGO
+          </p>
+          <h2 className="mt-2 text-3xl font-extrabold text-teal-950">
+            Create your NGO profile to unlock the dashboard
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+            You are signed in as <span className="font-semibold text-teal-950">{user?.email}</span>.
+            Complete this form once, and your overview will become live immediately.
+          </p>
+        </div>
+        <div className="rounded-2xl bg-teal-50 p-3 text-teal-700">
+          <PlusCircle className="h-5 w-5" />
+        </div>
+      </div>
+
+      <form
+        className="mt-8 grid gap-4 md:grid-cols-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit(formValues);
+        }}
+      >
+        <label className="space-y-2 md:col-span-2">
+          <span className="text-sm font-semibold text-teal-900">NGO Name</span>
+          <input
+            value={formValues.name}
+            onChange={(event) => updateField('name', event.target.value)}
+            placeholder="Enter NGO name"
+            required
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+          />
+        </label>
+
+        <label className="space-y-2 md:col-span-2">
+          <span className="text-sm font-semibold text-teal-900">Description</span>
+          <textarea
+            value={formValues.description}
+            onChange={(event) => updateField('description', event.target.value)}
+            placeholder="Describe your NGO mission and focus areas"
+            required
+            rows={4}
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+          />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-sm font-semibold text-teal-900">Location</span>
+          <input
+            value={formValues.location}
+            onChange={(event) => updateField('location', event.target.value)}
+            placeholder="City or state"
+            required
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+          />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-sm font-semibold text-teal-900">Contact Phone</span>
+          <input
+            value={formValues.contact_phone}
+            onChange={(event) => updateField('contact_phone', event.target.value)}
+            placeholder="Phone number"
+            required
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+          />
+        </label>
+
+        <label className="space-y-2 md:col-span-2">
+          <span className="text-sm font-semibold text-teal-900">Logo URL</span>
+          <input
+            value={formValues.logo_url}
+            onChange={(event) => updateField('logo_url', event.target.value)}
+            placeholder="Optional public logo URL"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+          />
+        </label>
+
+        <div className="md:col-span-2 flex items-center justify-between gap-4 rounded-2xl border border-teal-100 bg-teal-50 px-4 py-4">
+          <p className="text-sm text-slate-600">
+            Your Google email will be used as the NGO contact email automatically.
+          </p>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            <PlusCircle className="h-4 w-4" />
+            {submitting ? 'Creating...' : 'Create NGO Profile'}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
 export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -155,6 +281,7 @@ export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
   const [doctorDirectory, setDoctorDirectory] = useState([]);
   const [doctorRequests, setDoctorRequests] = useState([]);
   const [donations, setDonations] = useState([]);
+  const [workersList, setWorkersList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [driveEditorRecord, setDriveEditorRecord] = useState(null);
@@ -165,6 +292,9 @@ export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
   const [mediaError, setMediaError] = useState('');
   const [blogError, setBlogError] = useState('');
   const [relationshipError, setRelationshipError] = useState('');
+  const [registeringNgo, setRegisteringNgo] = useState(false);
+  const [updatingNgo, setUpdatingNgo] = useState(false);
+  const [showNgoProfileModal, setShowNgoProfileModal] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -237,7 +367,7 @@ export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
     const matchedNgo = user?.email
       ? ngos.find((ngo) => normalizeEmail(ngo.contact_email) === normalizeEmail(user.email)) || null
       : null;
-    setActiveNgo(matchedNgo || ngos[0] || null);
+    setActiveNgo(matchedNgo);
   }, [ngos, user]);
 
   useEffect(() => {
@@ -247,7 +377,7 @@ export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
       setMediaError('');
       setBlogError('');
       setRelationshipError('');
-      const [drivesResponse, blogsResponse, imagesResponse, doctorsResponse, donorsResponse, directoryResponse, requestsResponse, donationsResponse] = await Promise.all([
+      const [drivesResponse, blogsResponse, imagesResponse, doctorsResponse, donorsResponse, directoryResponse, requestsResponse, donationsResponse, workersResponse] = await Promise.all([
         supabase.from('ngo_drives').select('*').eq('ngo_id', activeNgo.id).order('created_at', { ascending: false }),
         supabase.from('ngo_blogs').select('*').eq('ngo_id', activeNgo.id).order('created_at', { ascending: false }),
         supabase.from('blog_images').select('*').eq('ngo_id', activeNgo.id).order('created_at', { ascending: false }),
@@ -256,6 +386,7 @@ export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
         supabase.from('doctors').select('id, name, email, specialization, hospital, verified').order('name', { ascending: true }),
         supabase.from('ngo_connection_requests').select('*').eq('ngo_id', activeNgo.id).order('created_at', { ascending: false }),
         supabase.from('donations').select('id, donor_id, ngo_id, amount, payment_id, created_at').eq('ngo_id', activeNgo.id).order('created_at', { ascending: false }),
+        supabase.from('workers').select('*').eq('ngo_id', activeNgo.id).order('created_at', { ascending: false }),
       ]);
       if (!isMounted) return;
       const firstCriticalError = [drivesResponse.error, doctorsResponse.error, donorsResponse.error].find(Boolean);
@@ -279,6 +410,7 @@ export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
       setDoctorDirectory(directoryResponse.error ? [] : directoryResponse.data || []);
       setDoctorRequests(requestsResponse.error ? [] : requestsResponse.data || []);
       setDonations(donationsResponse.error ? [] : donationsResponse.data || []);
+      setWorkersList(workersResponse?.error ? [] : workersResponse?.data || []);
     };
     loadNgoCmsData();
     return () => {
@@ -410,8 +542,16 @@ export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
       timeLabel: formatDate(donation.created_at),
       createdAt: donation.created_at || '',
     }));
-    return [...doctorNotifications, ...donationNotifications].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-  }, [doctorRequests, donations]);
+    const workerNotifications = workersList.map((w) => ({
+      id: `worker-${w.id}`,
+      type: 'worker',
+      title: 'New Worker Joined',
+      message: `${w.full_name} (${w.email}) linked to your NGO.`,
+      timeLabel: formatDate(w.created_at),
+      createdAt: w.created_at || '',
+    }));
+    return [...doctorNotifications, ...donationNotifications, ...workerNotifications].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  }, [doctorRequests, donations, workersList]);
 
   const overviewMetrics = useMemo(() => {
     const totalRaised = donations.reduce((sum, donation) => sum + Number(donation.amount || 0), 0);
@@ -436,9 +576,8 @@ export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
   const setupChecklist = [
     !authChecked ? 'Authentication check is still in progress. Wait for the session to load.' : null,
     authChecked && !user?.email ? 'No Supabase session was found for this page. Sign in again with Google and confirm the callback finishes on /Ngos.' : null,
-    !activeNgo?.id ? 'No NGO row is available in the `ngos` table.' : null,
-    user?.email && activeNgo?.id && normalizeEmail(activeNgo.contact_email) !== normalizeEmail(user.email)
-      ? 'This login is not linked to the active NGO. Set `ngos.contact_email` equal to your logged-in email.'
+    user?.email && !activeNgo?.id
+      ? 'No NGO profile is linked to this Google account yet. Create one from the overview page.'
       : null,
   ].filter(Boolean);
 
@@ -460,8 +599,87 @@ export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
     }
   };
 
+  const handleNgoRegistration = async (formValues) => {
+    if (!user?.email) {
+      alert('Sign in with Google first.');
+      return;
+    }
+
+    setRegisteringNgo(true);
+
+    const { data, error } = await supabase
+      .from('ngos')
+      .insert({
+        name: formValues.name,
+        description: formValues.description,
+        location: formValues.location,
+        contact_email: user.email,
+        contact_phone: formValues.contact_phone,
+        logo_url: formValues.logo_url || fallbackLogo,
+        total_drives: 0,
+        success_score: 0,
+        verified: false,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      alert(error.message);
+      setRegisteringNgo(false);
+      return;
+    }
+
+    setNgos((current) => [data, ...current]);
+    setActiveNgo(data);
+    setRegisteringNgo(false);
+  };
+
+  const handleNgoProfileUpdate = async (formValues) => {
+    if (!activeNgo?.id) {
+      return;
+    }
+
+    setUpdatingNgo(true);
+
+    const { data, error } = await supabase
+      .from('ngos')
+      .update({
+        name: formValues.name,
+        description: formValues.description,
+        location: formValues.location,
+        contact_phone: formValues.contact_phone,
+        logo_url: formValues.logo_url || fallbackLogo,
+      })
+      .eq('id', activeNgo.id)
+      .select()
+      .single();
+
+    if (error) {
+      alert(error.message);
+      setUpdatingNgo(false);
+      return;
+    }
+
+    setNgos((current) => current.map((ngo) => (ngo.id === data.id ? data : ngo)));
+    setActiveNgo(data);
+    setShowNgoProfileModal(false);
+    setUpdatingNgo(false);
+  };
+
+  const layoutUser = useMemo(
+    () =>
+      activeNgo
+        ? {
+            ...user,
+            name: activeNgo.name || user?.name,
+            avatar: activeNgo.logo_url || user?.avatar,
+          }
+        : user,
+    [activeNgo, user]
+  );
+
   const commonLayoutProps = {
-    user,
+    user: layoutUser,
     mobileOpen,
     onMobileOpen: () => setMobileOpen(true),
     onMobileClose: () => setMobileOpen(false),
@@ -498,9 +716,11 @@ export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
         ) : activeNgo ? (
           <NgoSummaryCard ngo={activeNgo} />
         ) : (
-          <div className="rounded-2xl border border-dashed border-teal-200 bg-teal-50 p-6 text-sm text-slate-600">
-            No NGO records were returned from Supabase. Logged-in email: <span className="font-semibold text-teal-900">{user?.email || 'No email found'}</span>. Check that the `ngos` table has rows and your read policies allow `select`.
-          </div>
+          <NgoRegistrationCard
+            user={user}
+            submitting={registeringNgo}
+            onSubmit={handleNgoRegistration}
+          />
         )}
       </section>
 
@@ -580,6 +800,12 @@ export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
                 <Link href="/Ngos/drives" className="rounded-2xl border border-teal-100 bg-teal-50 px-4 py-4 text-sm font-semibold text-teal-900 transition hover:border-teal-300 hover:bg-white">
                   Manage Drives
                 </Link>
+                <Link href="/Ngos/workers" className="rounded-2xl border border-teal-100 bg-teal-50 px-4 py-4 text-sm font-semibold text-teal-900 transition hover:border-teal-300 hover:bg-white">
+                  Manage Field Workers
+                </Link>
+                <Link href="/Ngos/audits" className="rounded-2xl border border-teal-100 bg-teal-50 px-4 py-4 text-sm font-semibold text-teal-900 transition hover:border-teal-300 hover:bg-white">
+                  Review Village Audits
+                </Link>
                 <Link href="/Ngos/doctors" className="rounded-2xl border border-teal-100 bg-teal-50 px-4 py-4 text-sm font-semibold text-teal-900 transition hover:border-teal-300 hover:bg-white">
                   Review Doctor Requests
                 </Link>
@@ -600,7 +826,9 @@ export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
   let content = null;
   if (activeView === 'overview') content = overviewSection;
   if (activeView === 'dashboard') content = <NGODashboard doctors={connectedDoctors} donors={connectedDonors} drives={drives} blogs={blogs} activeNgo={activeNgo} />;
+  if (activeView === 'audits') content = <NgoAuditsPanel activeNgo={activeNgo} />;
   if (activeView === 'drives') content = <section className="space-y-6"><DriveForm key={driveEditorRecord?.id || 'new-drive'} initialValues={driveEditorRecord} onSubmit={handleDriveSubmit} onCancel={() => setDriveEditorRecord(null)} submitting={driveSubmitting} disabled={!ngoCmsReady} /><DriveList drives={filteredDrives} onEdit={setDriveEditorRecord} onDelete={handleDriveDelete} /></section>;
+  if (activeView === 'workers') content = <NgoWorkersPanel activeNgo={activeNgo} />;
   if (activeView === 'doctors') content = <DoctorConnectionsPanel doctors={doctorDirectory} requests={doctorRequests} connectedDoctors={connectedDoctors} onSendRequest={handleDoctorRequest} onRespondToRequest={handleDoctorRequestResponse} />;
   if (activeView === 'donors') content = <DonorSupportPanel donations={donations} connectedDonors={connectedDonors} />;
   if (activeView === 'notifications') content = <NotificationFeed notifications={notifications} />;
@@ -662,6 +890,27 @@ export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
       ) : null}
 
       {content}
+
+      {activeView === 'overview' && activeNgo ? (
+        <div className="fixed bottom-6 right-6 z-30">
+          <button
+            type="button"
+            onClick={() => setShowNgoProfileModal(true)}
+            className="rounded-2xl bg-teal-600 px-5 py-3 text-sm font-bold text-white shadow-xl transition hover:bg-teal-700"
+          >
+            Edit NGO Profile
+          </button>
+        </div>
+      ) : null}
+
+      {showNgoProfileModal && activeNgo ? (
+        <NgoProfileModal
+          ngo={activeNgo}
+          submitting={updatingNgo}
+          onSubmit={handleNgoProfileUpdate}
+          onClose={() => setShowNgoProfileModal(false)}
+        />
+      ) : null}
     </RoleDashboardLayout>
   );
 }

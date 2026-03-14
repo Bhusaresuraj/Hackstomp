@@ -113,10 +113,10 @@ def read_payload():
     payload = json.loads(raw_input)
     if isinstance(payload, dict) and "village" in payload and isinstance(payload["village"], dict):
         return payload["village"]
-    if isinstance(payload, dict):
+    if isinstance(payload, dict) and payload:
         return payload
 
-    raise ValueError("Invalid payload. Expected a village feature object.")
+    return SAMPLE_VILLAGE
 
 
 def main():

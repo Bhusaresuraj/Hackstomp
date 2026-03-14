@@ -10,6 +10,8 @@ export default function DoctorBlogModal({ doctor, addBlog, close }) {
     content: "",
     image: ""
   });
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [loadingAI, setLoadingAI] = useState(false);
 
 async function generateWithAI() {
 
@@ -17,13 +19,22 @@ async function generateWithAI() {
 
     setLoadingAI(true);
 
+    const effectivePrompt = aiPrompt.trim() || formData.title.trim() || formData.content.trim();
+
+    if (!effectivePrompt) {
+      alert("Add a title or a few rough notes before using AI Assist.");
+      return;
+    }
+
     const res = await fetch("/api/generate-blog", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        prompt: formData.content
+        prompt: effectivePrompt,
+        title: formData.title,
+        doctorName: doctor?.name || "Doctor"
       })
     });
 
@@ -59,13 +70,14 @@ async function generateWithAI() {
     });
   }
 
-    const [loadingAI, setLoadingAI] = useState(false);
-
   async function handleSubmit(e) {
     e.preventDefault();
-console.log(doctor,"isdoctor info")
+    if (!doctor?.id) {
+      alert("Doctor profile is still loading. Try again in a moment.");
+      return;
+    }
+
     const newBlog = await createDoctorBlog(
-        
       doctor.id,
       formData
     );
@@ -73,7 +85,10 @@ console.log(doctor,"isdoctor info")
     if (newBlog) {
       addBlog(newBlog);
       close();
+      return;
     }
+
+    alert("Blog save failed. Check the doctor_blogs table and its RLS policies.");
   }
 
   return (
@@ -90,6 +105,7 @@ console.log(doctor,"isdoctor info")
           <input
             name="title"
             placeholder="Blog Title"
+            value={formData.title}
             onChange={handleChange}
             className="w-full border p-3 rounded-lg"
           />
@@ -97,12 +113,20 @@ console.log(doctor,"isdoctor info")
           <input
             name="image"
             placeholder="Image URL"
+            value={formData.image}
             onChange={handleChange}
             className="w-full border p-3 rounded-lg"
           />
+
+          <textarea
+            placeholder="AI prompt or rough notes"
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            className="w-full border p-3 rounded-lg h-24"
+          />
 <textarea
   name="content"
-  placeholder="Write keywords or rough blog..."
+  placeholder="Blog content"
   value={formData.content}
   onChange={handleChange}
   className="w-full border p-3 rounded-lg h-40"

@@ -1,150 +1,201 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { speakText, stopSpeaking } from "../../translations/piperTTS"
 
-const text = {
-English:{
-causes:"Possible Causes",
-advice:"What You Should Do",
-doctor:"When To Visit Doctor"
-},
-Hindi:{
-causes:"संभावित कारण",
-advice:"क्या करना चाहिए",
-doctor:"डॉक्टर के पास कब जाएं"
-},
-Marathi:{
-causes:"संभाव्य कारण",
-advice:"काय करावे",
-doctor:"डॉक्टरांकडे कधी जावे"
-}
+import en from "../../translations/en.json"
+import hi from "../../translations/hi.json"
+import mr from "../../translations/mr.json"
+
+const translations = {
+  English: en,
+  Hindi: hi,
+  Marathi: mr
 }
 
 const symptoms = [
 {
 id:1,
 emoji:"🤒",
-title:{
-English:"Fever",
-Hindi:"बुखार",
-Marathi:"ताप"
+title:"fever"
 },
-guidance:{
-English:{
-causes:["Viral Fever","Dengue","Malaria"],
-advice:["Drink plenty of water","Take rest","Monitor temperature"],
-doctor:["Fever lasts more than 3 days","Severe weakness"]
-},
-Hindi:{
-causes:["वायरल बुखार","डेंगू","मलेरिया"],
-advice:["पर्याप्त पानी पिएं","आराम करें","तापमान जांचते रहें"],
-doctor:["3 दिन से अधिक बुखार","अत्यधिक कमजोरी"]
-},
-Marathi:{
-causes:["व्हायरल ताप","डेंग्यू","मलेरिया"],
-advice:["पुरेसे पाणी प्या","विश्रांती घ्या","ताप तपासा"],
-doctor:["3 दिवसांपेक्षा जास्त ताप","जास्त अशक्तपणा"]
-}
-}
-},
-
 {
 id:2,
 emoji:"🤕",
-title:{
-English:"Headache",
-Hindi:"सिरदर्द",
-Marathi:"डोकेदुखी"
+title:"headache"
 },
-guidance:{
-English:{
-causes:["Stress","Lack of sleep","Dehydration"],
-advice:["Drink water","Rest in a quiet place","Avoid screen time"],
-doctor:["Severe headache","Headache with vomiting"]
-},
-Hindi:{
-causes:["तनाव","नींद की कमी","पानी की कमी"],
-advice:["पानी पिएं","शांत जगह पर आराम करें","मोबाइल स्क्रीन कम देखें"],
-doctor:["बहुत तेज सिरदर्द","उल्टी के साथ सिरदर्द"]
-},
-Marathi:{
-causes:["ताण","झोपेची कमतरता","पाण्याची कमतरता"],
-advice:["पाणी प्या","शांत ठिकाणी विश्रांती घ्या","मोबाईल स्क्रीन कमी वापरा"],
-doctor:["तीव्र डोकेदुखी","उलटीसह डोकेदुखी"]
-}
-}
-},
-
 {
 id:3,
 emoji:"🤢",
-title:{
-English:"Vomiting",
-Hindi:"उल्टी",
-Marathi:"उलटी"
+title:"vomiting"
 },
-guidance:{
-English:{
-causes:["Food poisoning","Stomach infection"],
-advice:["Drink ORS","Eat light food","Stay hydrated"],
-doctor:["Vomiting for more than 1 day","Signs of dehydration"]
+{
+id:4,
+emoji:"😷",
+title:"cough"
 },
-Hindi:{
-causes:["फूड पॉइज़निंग","पेट का संक्रमण"],
-advice:["ORS पिएं","हल्का भोजन करें","शरीर में पानी बनाए रखें"],
-doctor:["1 दिन से अधिक उल्टी","डिहाइड्रेशन के लक्षण"]
+{
+id:5,
+emoji:"💧",
+title:"diarrhea"
 },
-Marathi:{
-causes:["अन्न विषबाधा","पोटाचा संसर्ग"],
-advice:["ORS प्या","हलके अन्न खा","शरीरात पाणी ठेवा"],
-doctor:["1 दिवसापेक्षा जास्त उलटी","डिहायड्रेशनची चिन्हे"]
+{
+id:6,
+emoji:"👁",
+title:"eye"
 }
+]
+
+const campaigns = [
+{
+id:1,
+title:"Free Medical Camp",
+village:"Khed",
+date:"20 June",
+address:"ZP School Ground"
+},
+{
+id:2,
+title:"Eye Checkup Camp",
+village:"Shivapur",
+date:"25 June",
+address:"Community Hall"
+},
+{
+id:3, 
+title:"Dental Checkup Camp",
+village:"Nagle village",
+date:"30 June",
+address:"Village Health Center"
+},
+{id:4,  
+  title:"Health Awareness Camp",
+  village:"Khed",
+  date:"5 July",
+  address:"ZP School Ground"
+},
+{id:5,  
+  title:"Free Medical Camp",
+  village:"Shivapur",
+  date:"10 July",
+  address:"Community Hall"
 }
-}
+
+
 ]
 
 export default function Blogs(){
 
+const [active,setActive] = useState("awareness")
 const [language,setLanguage] = useState("English")
 const [search,setSearch] = useState("")
 const [selected,setSelected] = useState(null)
+const [isSpeaking,setIsSpeaking] = useState(false)
+
+const t = (key)=>{
+const keys = key.split(".")
+return keys.reduce((obj,i)=>obj[i],translations[language])
+}
+
+const handleSpeak = async () => {
+if(isSpeaking) {
+stopSpeaking();
+setIsSpeaking(false);
+return;
+}
+
+if (!navigator.onLine) {
+alert('Audio playback requires internet connection. Please connect to the internet and try again.');
+return;
+}
+
+setIsSpeaking(true);
+try{
+const symptomTitle = t(`symptoms.${selected.title}`);
+const causesLabel = t("labels.causes");
+const adviceLabel = t("labels.advice");
+const doctorLabel = t("labels.doctor");
+
+const guidance = t(`guidance.${selected.title}`);
+const causesText = guidance.causes.join(". ");
+const adviceText = guidance.advice.join(". ");
+const doctorText = guidance.doctor.join(". ");
+
+const fullText = `${symptomTitle}. ${causesLabel}: ${causesText}. ${adviceLabel}: ${adviceText}. ${doctorLabel}: ${doctorText}`;
+
+console.log('Speaking:', fullText);
+console.log('Language:', language);
+
+await speakText(fullText, language);
+}catch(error){
+console.error("Speech error:", error);
+if(error.message && error.message.includes('internet')){
+console.log('Offline mode - TTS not available');
+}
+}finally{
+setIsSpeaking(false);
+}
+}
 
 const filtered = symptoms.filter(item =>
-item.title[language].toLowerCase().includes(search.toLowerCase())
+t(`symptoms.${item.title}`).toLowerCase().includes(search.toLowerCase())
 )
 
 return(
 
-<div className="w-full px-10 py-20 bg-teal-50 min-h-screen">
+<div className="flex min-h-screen bg-gray-100 text-black">
 
-<div className="text-center mb-12">
+{/* SIDEBAR */}
 
-<h1 className="text-5xl font-bold text-teal-700">
-Rural Health Knowledge Center
-</h1>
+<div className="w-64 bg-teal-900 text-white p-6">
 
-<p className="text-lg text-gray-600 mt-4">
-Select your symptom to get simple healthcare guidance
-</p>
+<h2 className="text-2xl font-bold mb-10">
+Health Platform
+</h2>
+
+<ul className="space-y-5 text-lg">
+
+<li onClick={()=>setActive("awareness")} className="cursor-pointer">
+🏥 Healthcare Guidance
+</li>
+
+<li onClick={()=>setActive("consultation")} className="cursor-pointer">
+👨‍⚕️ Doctor Consultation
+</li>
+
+<li onClick={()=>setActive("ngo")} className="cursor-pointer">
+🤝 NGO Campaigns
+</li>
+
+</ul>
 
 </div>
 
+{/* MAIN */}
 
-{/* SEARCH */}
+<div className="flex-1 p-10">
 
-<div className="flex flex-col md:flex-row gap-4 justify-center mb-14">
+{active==="awareness" &&(
+
+<div>
+
+<h1 className="text-3xl font-bold mb-6">
+Healthcare Awareness
+</h1>
+
+<div className="flex gap-4 mb-8">
 
 <input
 value={search}
 onChange={(e)=>setSearch(e.target.value)}
-placeholder="Search symptom..."
-className="border border-teal-300 bg-white text-gray-700 px-5 py-3 rounded-xl w-full md:w-96 focus:outline-none focus:ring-2 focus:ring-teal-500"
+placeholder={t("labels.search")}
+className="border px-4 py-2 rounded-lg w-72 text-black"
 />
 
 <select
 value={language}
 onChange={(e)=>setLanguage(e.target.value)}
-className="border border-teal-300 bg-white text-gray-700 px-5 py-3 rounded-xl focus:ring-2 focus:ring-teal-500"
+className="border px-4 py-2 rounded-lg text-black"
 >
 <option>English</option>
 <option>Hindi</option>
@@ -153,25 +204,22 @@ className="border border-teal-300 bg-white text-gray-700 px-5 py-3 rounded-xl fo
 
 </div>
 
+<div className="grid md:grid-cols-3 gap-6">
 
-{/* SYMPTOMS */}
-
-<div className="grid grid-cols-2 md:grid-cols-3 gap-10">
-
-{filtered.map(item =>(
+{filtered.map(item=>(
 
 <div
 key={item.id}
 onClick={()=>setSelected(item)}
-className="bg-white border border-teal-100 shadow-md p-10 rounded-2xl text-center cursor-pointer hover:shadow-xl hover:-translate-y-1 transition"
+className="bg-white p-6 rounded-xl shadow cursor-pointer hover:shadow-lg border"
 >
 
-<div className="text-5xl mb-4">
+<div className="text-3xl mb-2">
 {item.emoji}
 </div>
 
-<h3 className="font-semibold text-xl text-teal-700">
-{item.title[language]}
+<h3 className="text-xl font-bold">
+{t(`symptoms.${item.title}`)}
 </h3>
 
 </div>
@@ -180,52 +228,139 @@ className="bg-white border border-teal-100 shadow-md p-10 rounded-2xl text-cente
 
 </div>
 
+</div>
+
+)}
+
+{active==="consultation" &&(
+
+<div>
+
+<h1 className="text-3xl font-bold mb-6">
+Doctor Consultation
+</h1>
+
+<div className="grid md:grid-cols-2 gap-6">
+
+<div className="bg-red-200 p-6 rounded-xl border">
+<h3 className="text-xl font-bold">🚑 Emergency</h3>
+<p>Toll Free: 108</p>
+
+<a href="tel:108" className="bg-red-600 text-white px-4 py-2 rounded mt-2 inline-block">
+Call Now
+</a>
+
+</div>
+
+<div className="bg-white p-6 rounded-xl shadow border">
+<h3 className="font-bold">🏥 Primary Health Center</h3>
+<p>Village: Khed</p>
+<p>Phone: 9876543210</p>
+</div>
+<div className="bg-white p-6 rounded-xl shadow border">
+<h3 className="font-bold">🏥 Primary Health Center</h3>
+<p>Village: Shivpur</p>
+<p>Phone: 9876543210</p>
+</div>
+<div className="bg-white p-6 rounded-xl shadow border">
+<h3 className="font-bold">🏥 Primary Health Center</h3>
+<p>Village: Nagle village</p>
+<p>Phone: 9876543210</p>
+</div>
+
+</div>
+
+</div>
+
+)}
+
+{active==="ngo" &&(
+
+<div>
+
+<h1 className="text-3xl font-bold mb-6">
+NGO Campaigns
+</h1>
+
+<div className="grid md:grid-cols-2 gap-6">
+
+{campaigns.map(camp=>(
+
+<div key={camp.id} className="bg-white p-6 rounded-xl shadow border">
+
+<h3 className="font-bold text-lg">
+{camp.title}
+</h3>
+
+<p>Village: {camp.village}</p>
+<p>Address: {camp.address}</p>
+<p>Date: {camp.date}</p>
+
+</div>
+
+))}
+
+</div>
+
+</div>
+
+)}
+
+</div>
 
 {/* POPUP */}
 
-{selected && (
+{selected &&(
 
-<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+<div className="fixed inset-0 bg-black/40 flex items-center justify-center">
 
-<div className="bg-white w-[90%] md:w-[600px] rounded-2xl p-8 shadow-xl relative max-h-[80vh] overflow-y-auto">
+<div className="bg-white p-10 rounded-xl w-[650px] max-h-[80vh] overflow-y-auto relative text-black shadow-2xl">
 
 <button
 onClick={()=>setSelected(null)}
-className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-xl"
+className="absolute top-4 right-5 text-2xl font-bold"
 >
 ✖
 </button>
 
-<h2 className="text-3xl font-bold text-teal-700 mb-6">
-{selected.emoji} {selected.title[language]}
+<button
+onClick={handleSpeak}
+className="absolute top-4 right-16 text-2xl font-bold hover:scale-110 transition-transform"
+title={isSpeaking ? "Stop audio" : "Play audio"}
+>
+{isSpeaking ? "⏹" : "🔊"}
+</button>
+
+<h2 className="text-2xl font-bold mb-4">
+{selected.emoji} {t(`symptoms.${selected.title}`)}
 </h2>
 
-<h3 className="font-semibold text-gray-800 mb-2">
-{text[language].causes}
+<h3 className="font-bold text-lg">
+{t("labels.causes")}
 </h3>
 
-<ul className="list-disc ml-6 mb-5 text-gray-700">
-{selected.guidance[language].causes.map((c,i)=>(
+<ul className="list-disc ml-6 mb-4">
+{t(`guidance.${selected.title}`).causes.map((c,i)=>(
 <li key={i}>{c}</li>
 ))}
 </ul>
 
-<h3 className="font-semibold mb-2 text-emerald-600">
-{text[language].advice}
+<h3 className="font-bold text-green-700 text-lg">
+{t("labels.advice")}
 </h3>
 
-<ul className="list-disc ml-6 mb-5 text-gray-700">
-{selected.guidance[language].advice.map((c,i)=>(
+<ul className="list-disc ml-6 mb-4">
+{t(`guidance.${selected.title}`).advice.map((c,i)=>(
 <li key={i}>{c}</li>
 ))}
 </ul>
 
-<h3 className="font-semibold mb-2 text-red-600">
-{text[language].doctor}
+<h3 className="font-bold text-red-700 text-lg">
+{t("labels.doctor")}
 </h3>
 
-<ul className="list-disc ml-6 text-gray-700">
-{selected.guidance[language].doctor.map((c,i)=>(
+<ul className="list-disc ml-6">
+{t(`guidance.${selected.title}`).doctor.map((c,i)=>(
 <li key={i}>{c}</li>
 ))}
 </ul>
@@ -239,4 +374,5 @@ className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-xl"
 </div>
 
 )
+
 }
