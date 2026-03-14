@@ -297,17 +297,17 @@ Health Awareness Blogs
 
 <Blog
 title="Preventing Dengue in Rural Areas"
-image="/blog1.jpg"
+image="/dengue.png"
 />
 
 <Blog
 title="Importance of Clean Drinking Water"
-image="/blog2.jpg"
+image="/water.jpg"
 />
 
 <Blog
 title="Nutrition Tips for Rural Families"
-image="/blog3.jpg"
+image="/nuitritions.jpg"
 />
 
 </div>
