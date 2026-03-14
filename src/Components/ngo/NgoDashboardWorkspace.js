@@ -18,6 +18,8 @@ import {
   Stethoscope,
   UserPlus,
   Workflow,
+  MessageCircle,
+  Send,
 } from 'lucide-react';
 import RoleDashboardLayout from '@/Components/RoleDashboardLayout';
 import NGODashboard from '@/Components/ngo/NGODashboard';
@@ -41,6 +43,7 @@ const baseNavItems = [
   { href: '/Ngos/dashboard', label: 'Dashboard', icon: Workflow },
   { href: '/Ngos/audits', label: 'Audits', icon: ClipboardList },
   { href: '/Ngos/drives', label: 'Drives', icon: ShieldCheck },
+  { href: '/Ngos/messages', label: 'Messages', icon: MessageCircle },
   { href: '/Ngos/workers', label: 'Workers', icon: UserPlus },
   { href: '/Ngos/doctors', label: 'Doctors', icon: Stethoscope },
   { href: '/Ngos/donors', label: 'Donors', icon: HandHeart },
@@ -55,6 +58,7 @@ const titles = {
   dashboard: 'NGO Dashboard',
   audits: 'Village Audits',
   drives: 'NGO Drives',
+  messages: 'Direct Messages',
   workers: 'NGO Workers',
   doctors: 'NGO Doctors',
   donors: 'NGO Donors',
@@ -93,6 +97,81 @@ function isIgnorableRelationshipError(message) {
     "Could not find the table 'public.ngo_donors' in the schema cache",
     "Could not find the table 'public.ngo_doctors' in the schema cache",
   ].includes(message);
+}
+
+function NgoMessagesPanel({ activeNgo, connectedDoctors, doctorDirectory }) {
+  const [selectedDoctorId, setSelectedDoctorId] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+
+  const doctorsList = connectedDoctors.map(conn => {
+    return doctorDirectory.find(d => d.id === conn.doctor_id) || { id: conn.doctor_id, name: 'Unknown Doctor' };
+  });
+
+  useEffect(() => {
+    if (!selectedDoctorId || !activeNgo) return;
+    const fetchMessages = async () => {
+      const { data, error } = await supabase.from('direct_messages').select('*').eq('ngo_id', activeNgo.id).eq('doctor_id', selectedDoctorId).order('created_at', { ascending: true });
+      if (error) {
+        alert("Database error loading messages: " + error.message);
+      }
+      setMessages(data || []);
+    };
+    fetchMessages();
+  }, [selectedDoctorId, activeNgo]);
+
+  const sendMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedDoctorId) return;
+    const msg = { ngo_id: activeNgo.id, doctor_id: selectedDoctorId, sender_type: 'ngo', content: newMessage };
+    const { data, error } = await supabase.from('direct_messages').insert(msg).select().single();
+    if (error) {
+      alert("Failed to send message: " + error.message);
+    } else if (data) {
+      setMessages([...messages, data]);
+      setNewMessage('');
+    }
+  };
+
+  return (
+    <section className="rounded-3xl border border-teal-100 bg-white shadow-xl overflow-hidden flex h-[600px]">
+      <div className="w-1/3 bg-teal-50 border-r border-teal-100 overflow-y-auto">
+        <div className="p-5 border-b border-teal-100 sticky top-0 bg-teal-50"><h3 className="font-bold text-teal-950">Connected Doctors</h3></div>
+        {doctorsList.length === 0 ? (
+          <p className="p-5 text-sm text-slate-500">No connected doctors to message.</p>
+        ) : (
+          <div className="divide-y divide-teal-100">
+            {doctorsList.map(doc => (
+              <button key={doc.id} onClick={() => setSelectedDoctorId(doc.id)} className={`w-full text-left p-4 hover:bg-teal-100 transition ${selectedDoctorId === doc.id ? 'bg-teal-100 font-bold text-teal-900' : 'text-slate-700'}`}>Dr. {doc.name}</button>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      <div className="flex-1 flex flex-col bg-white">
+        {selectedDoctorId ? (
+          <>
+            <div className="p-5 border-b border-teal-100 shadow-sm z-10 bg-white"><h3 className="font-bold text-teal-950">Chat</h3></div>
+            <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-slate-50">
+              {messages.length === 0 ? <p className="text-center text-slate-400 text-sm mt-10">No messages yet. Send a hi!</p> : messages.map(msg => (
+                <div key={msg.id} className={`flex ${msg.sender_type === 'ngo' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[70%] p-3 rounded-2xl ${msg.sender_type === 'ngo' ? 'bg-teal-600 text-white rounded-tr-sm' : 'bg-white border border-teal-100 text-slate-800 rounded-tl-sm shadow-sm'}`}>
+                    <p className="text-sm">{msg.content}</p><p className={`text-[10px] mt-1 ${msg.sender_type === 'ngo' ? 'text-teal-200' : 'text-slate-400'}`}>{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <form onSubmit={sendMessage} className="p-4 border-t border-teal-100 bg-white flex gap-3">
+              <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type a message..." className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 outline-none focus:ring-2 focus:ring-teal-500" />
+              <button type="submit" className="bg-teal-600 text-white p-2 px-4 rounded-xl hover:bg-teal-700 transition flex items-center justify-center"><Send className="w-5 h-5" /></button>
+            </form>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-slate-400 flex-col gap-3"><MessageCircle className="w-12 h-12 opacity-20" /><p>Select a doctor to start messaging</p></div>
+        )}
+      </div>
+    </section>
+  );
 }
 
 function NgoSummaryCard({ ngo }) {
@@ -827,6 +906,7 @@ export default function NgoDashboardWorkspace({ activeView = 'overview' }) {
   if (activeView === 'overview') content = overviewSection;
   if (activeView === 'dashboard') content = <NGODashboard doctors={connectedDoctors} donors={connectedDonors} drives={drives} blogs={blogs} activeNgo={activeNgo} />;
   if (activeView === 'audits') content = <NgoAuditsPanel activeNgo={activeNgo} />;
+  if (activeView === 'messages') content = <NgoMessagesPanel activeNgo={activeNgo} connectedDoctors={connectedDoctors} doctorDirectory={doctorDirectory} />;
   if (activeView === 'drives') content = <section className="space-y-6"><DriveForm key={driveEditorRecord?.id || 'new-drive'} initialValues={driveEditorRecord} onSubmit={handleDriveSubmit} onCancel={() => setDriveEditorRecord(null)} submitting={driveSubmitting} disabled={!ngoCmsReady} /><DriveList drives={filteredDrives} onEdit={setDriveEditorRecord} onDelete={handleDriveDelete} /></section>;
   if (activeView === 'workers') content = <NgoWorkersPanel activeNgo={activeNgo} />;
   if (activeView === 'doctors') content = <DoctorConnectionsPanel doctors={doctorDirectory} requests={doctorRequests} connectedDoctors={connectedDoctors} onSendRequest={handleDoctorRequest} onRespondToRequest={handleDoctorRequestResponse} />;

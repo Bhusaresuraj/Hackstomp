@@ -29,7 +29,6 @@ export default function DoctorProfileCard({ doctor, openModal }) {
             Verification Pending
           </div>
         )}
-        <button  className="text-slate-700 bg-green-300 px-3 py-2 rounded-3xl border-2 border-green-700 hover:cursor-pointer">Get Verify Doctor</button>
       </div>
 
       {/* Doctor Info */}

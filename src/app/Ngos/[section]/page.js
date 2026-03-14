@@ -5,6 +5,7 @@ const validSections = new Set([
   'dashboard',
   'audits',
   'drives',
+  'messages',
   'workers',
   'doctors',
   'donors',
