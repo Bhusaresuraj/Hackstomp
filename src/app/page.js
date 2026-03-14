@@ -30,7 +30,7 @@ export default function Home() {
     <main className="bg-white text-slate-800 overflow-x-hidden">
 
       {/* HERO */}
-      <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-emerald-800 via-blue-300 to-lime-800 text-white px-6 md:px-10">
+      <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-blue-800 via-emerald-400 to-lime-700 text-white px-6 md:px-10">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.12),transparent_25%)]" />
 
         <motion.div
@@ -72,7 +72,7 @@ export default function Home() {
             <a href="#ecosystem" className="transition hover:text-white">Ecosystem</a>
             <a href="#how-it-works" className="transition hover:text-white">How It Works</a>
             <a href="#impact" className="transition hover:text-white">Impact</a>
-            <a href="#blogs" className="transition hover:text-white">Blogs</a>
+            <a href="Blogs" className="transition hover:text-white">Blogs</a>
           </nav>
 
           <Link
@@ -162,7 +162,19 @@ export default function Home() {
             transition={{ duration: 0.9 }}
             className="relative"
           >
-         
+            {/* <div className="absolute -left-6 top-10 hidden w-48 rounded-2xl border border-white/20 bg-white/15 p-4 backdrop-blur-md lg:block">
+              <p className="text-sm font-semibold">Low Connectivity Ready</p>
+              <p className="mt-2 text-sm text-white/80">
+                Lightweight pages for village-side usability.
+              </p>
+            </div>
+
+            <div className="absolute -right-6 bottom-10 hidden w-52 rounded-2xl border border-white/20 bg-white/15 p-4 backdrop-blur-md lg:block">
+              <p className="text-sm font-semibold">Unified Rural Workflow</p>
+              <p className="mt-2 text-sm text-white/80">
+                Report issues → connect doctors → organize drives → manage waste.
+              </p>
+            </div> */}
 
             <motion.div
               whileHover={{ y: -6, rotate: -1 }}
