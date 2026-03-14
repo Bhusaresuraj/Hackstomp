@@ -27,8 +27,25 @@ export default function DoctorNgoProfileView() {
       const { data: { session } } = await supabase.auth.getSession();
       const currentUserId = session?.user?.id;
       
+      let resolvedDoctorId = null;
       if (currentUserId) {
-        setDoctorId(currentUserId);
+        let { data: doctorRecord } = await supabase
+          .from('doctors')
+          .select('*')
+          .eq('id', currentUserId)
+          .maybeSingle();
+
+        if (!doctorRecord && session?.user?.email) {
+          const { data: doctorByEmail } = await supabase
+            .from('doctors')
+            .select('*')
+            .eq('email', session.user.email)
+            .maybeSingle();
+          doctorRecord = doctorByEmail || doctorRecord;
+        }
+
+        resolvedDoctorId = doctorRecord?.id || currentUserId;
+        setDoctorId(resolvedDoctorId);
       }
 
       setLoading(true);
@@ -51,7 +68,7 @@ export default function DoctorNgoProfileView() {
             .from('ngo_connection_requests')
             .select('*')
             .eq('ngo_id', ngoId)
-            .eq('doctor_id', currentUserId)
+            .eq('doctor_id', resolvedDoctorId || currentUserId)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -64,7 +81,7 @@ export default function DoctorNgoProfileView() {
                .from('ngo_doctors')
                .select('*')
                .eq('ngo_id', ngoId)
-               .eq('doctor_id', currentUserId)
+               .eq('doctor_id', resolvedDoctorId || currentUserId)
                .maybeSingle();
                
             if (connData) setConnectionStatus('accepted');

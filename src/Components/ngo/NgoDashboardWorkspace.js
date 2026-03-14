@@ -123,12 +123,36 @@ function NgoMessagesPanel({ activeNgo, connectedDoctors, doctorDirectory }) {
   const sendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedDoctorId) return;
+    const doctorProfile =
+      doctorDirectory.find((doc) => doc.id === selectedDoctorId) || {};
+    const { data: doctorRecord } = await supabase
+      .from('doctors')
+      .select('id')
+      .eq('id', selectedDoctorId)
+      .maybeSingle();
+    if (!doctorRecord) {
+      const { error: createDoctorError } = await supabase.from('doctors').upsert({
+        id: selectedDoctorId,
+        name: doctorProfile.name || 'Doctor',
+        email: doctorProfile.email || null,
+        verified: doctorProfile.verified || false,
+        specialization: doctorProfile.specialization || null,
+        hospital: doctorProfile.hospital || null,
+      });
+      if (createDoctorError) {
+        alert(
+          "Failed to send message: doctor profile missing and could not be created. " +
+            createDoctorError.message
+        );
+        return;
+      }
+    }
     const msg = { ngo_id: activeNgo.id, doctor_id: selectedDoctorId, sender_type: 'ngo', content: newMessage };
     const { data, error } = await supabase.from('direct_messages').insert(msg).select().single();
     if (error) {
       alert("Failed to send message: " + error.message);
     } else if (data) {
-      setMessages([...messages, data]);
+      setMessages((current) => [...current, data]);
       setNewMessage('');
     }
   };

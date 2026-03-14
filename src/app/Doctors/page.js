@@ -40,12 +40,21 @@ export default function DoctorsPage() {
         .select('*')
         .eq('id', userId)
         .maybeSingle();
+
+      if (!doctorData && session.user.email) {
+        const { data: doctorByEmail } = await supabase
+          .from('doctors')
+          .select('*')
+          .eq('email', session.user.email)
+          .maybeSingle();
+        doctorData = doctorByEmail || doctorData;
+      }
         
       if (!doctorData) {
         // Automatically create a base profile if they are a new doctor
-        const { data: newDoctor } = await supabase
+        const { data: newDoctor, error: insertError } = await supabase
           .from('doctors')
-          .insert({
+          .upsert({
             id: userId,
             name: session.user.user_metadata?.full_name || 'Doctor',
             email: session.user.email,
@@ -53,15 +62,26 @@ export default function DoctorsPage() {
           })
           .select()
           .single();
-        doctorData = newDoctor;
+          
+        if (insertError) {
+          console.error("Failsafe doctor setup error:", insertError.message);
+        }
+        doctorData = newDoctor || { id: userId, name: session.user.user_metadata?.full_name || 'Doctor', email: session.user.email };
       }
       
       setDoctor(doctorData);
 
       // Load Network Data
       let { data: ngosData } = await supabase.from('ngos').select('*');
-      let { data: connectionsData } = await supabase.from('ngo_doctors').select('*').eq('doctor_id', userId);
-      let { data: requestsData } = await supabase.from('ngo_connection_requests').select('*').eq('doctor_id', userId);
+      const resolvedDoctorId = doctorData?.id || userId;
+      let { data: connectionsData } = await supabase
+        .from('ngo_doctors')
+        .select('*')
+        .eq('doctor_id', resolvedDoctorId);
+      let { data: requestsData } = await supabase
+        .from('ngo_connection_requests')
+        .select('*')
+        .eq('doctor_id', resolvedDoctorId);
       
       setAllNgos(ngosData || []);
       setConnections(connectionsData || []);
@@ -69,6 +89,53 @@ export default function DoctorsPage() {
     }
     setupDoctor();
   }, []);
+
+  const resolveDoctorId = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+
+    if (!user) {
+      return null;
+    }
+
+    let { data: doctorRecord } = await supabase
+      .from('doctors')
+      .select('*')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (!doctorRecord && user.email) {
+      const { data: doctorByEmail } = await supabase
+        .from('doctors')
+        .select('*')
+        .eq('email', user.email)
+        .maybeSingle();
+      doctorRecord = doctorByEmail || doctorRecord;
+    }
+
+    if (!doctorRecord) {
+      const { data: createdDoctor, error: createError } = await supabase
+        .from('doctors')
+        .upsert({
+          id: user.id,
+          name: user.user_metadata?.full_name || 'Doctor',
+          email: user.email,
+          verified: false
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        alert(`Could not create doctor profile: ${createError.message}`);
+        return null;
+      }
+
+      doctorRecord = createdDoctor;
+    }
+
+    setDoctor(doctorRecord);
+    return doctorRecord.id;
+  };
 
   const verifyDoctor = async () => {
     if (!doctor?.id) return;
@@ -120,10 +187,16 @@ export default function DoctorsPage() {
   };
 
   const openMessageModal = async (ngo) => {
-    if (!doctor?.id) return;
+    const resolvedDoctorId = doctor?.id || (await resolveDoctorId());
+    if (!resolvedDoctorId) return;
     
     setMessageModalNgo(ngo);
-    const { data, error } = await supabase.from('direct_messages').select('*').eq('doctor_id', doctor.id).eq('ngo_id', ngo.id).order('created_at', { ascending: true });
+    const { data, error } = await supabase
+      .from('direct_messages')
+      .select('*')
+      .eq('doctor_id', resolvedDoctorId)
+      .eq('ngo_id', ngo.id)
+      .order('created_at', { ascending: true });
     
     if (error) {
       alert("Database error loading messages: " + error.message);
@@ -133,9 +206,17 @@ export default function DoctorsPage() {
 
   const sendMessage = async (e) => {
     e.preventDefault();
-    if(!newMessage.trim() || !doctor?.id) return;
-    
-    const msg = { ngo_id: messageModalNgo.id, doctor_id: doctor.id, sender_type: 'doctor', content: newMessage };
+    if(!newMessage.trim()) return;
+
+    const resolvedDoctorId = doctor?.id || (await resolveDoctorId());
+    if (!resolvedDoctorId) return;
+
+    const msg = {
+      ngo_id: messageModalNgo.id,
+      doctor_id: resolvedDoctorId,
+      sender_type: 'doctor',
+      content: newMessage
+    };
     const { data, error } = await supabase.from('direct_messages').insert(msg).select().single();
     if (error) {
       alert("Failed to send message: " + error.message);
