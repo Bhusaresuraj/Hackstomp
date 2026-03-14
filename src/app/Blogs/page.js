@@ -126,7 +126,13 @@ const fullText = `${symptomTitle}. ${causesLabel}: ${causesText}. ${adviceLabel}
 console.log('Speaking:', fullText);
 console.log('Language:', language);
 
-await speakText(fullText, language);
+const languageCodes = {
+  English: 'en-IN',
+  Hindi: 'hi-IN',
+  Marathi: 'mr-IN'
+};
+
+await speakText(fullText, languageCodes[language] || 'en-US');
 }catch(error){
 console.error("Speech error:", error);
 if(error.message && error.message.includes('internet')){
@@ -317,7 +323,11 @@ NGO Campaigns
 <div className="bg-white p-10 rounded-xl w-[650px] max-h-[80vh] overflow-y-auto relative text-black shadow-2xl">
 
 <button
-onClick={()=>setSelected(null)}
+onClick={()=>{
+  setSelected(null);
+  stopSpeaking();
+  setIsSpeaking(false);
+}}
 className="absolute top-4 right-5 text-2xl font-bold"
 >
 ✖
